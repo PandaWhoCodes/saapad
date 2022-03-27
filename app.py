@@ -5,6 +5,7 @@ from datetime import datetime
 from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
 import requests
+from urllib.parse import quote_plus, urlencode
 
 app = Flask(__name__)
 
@@ -30,6 +31,9 @@ oauth = OAuth(app)
 ENV_FILE = find_dotenv()
 PROFILE_KEY = env.get("user", "user")
 JWT_PAYLOAD = env.get("jwt-payload", "JWT_PAYLOAD")
+COMPANY_DOMAIN = env.get("company_domain")
+MAX_MEALS_PER_DAY = int(env.get("MAX_MEALS_PER_DAY", 1))
+
 if ENV_FILE:
     load_dotenv(ENV_FILE)
 
@@ -49,7 +53,6 @@ def hello_world():
 
 @app.route("/")
 def home_page():
-    print(session)
     if PROFILE_KEY not in session:
         return redirect("/login")
     return render_template("home.html")
@@ -57,7 +60,32 @@ def home_page():
 
 @app.route("/eat_now")
 def eat_now():
-    return render_template("eat_now.html")
+    if PROFILE_KEY not in session:
+        return redirect("/login")
+    if not session[PROFILE_KEY]["email"].endswith(COMPANY_DOMAIN):
+        return render_template("you_are_out.html")
+
+    if "last_eat_date" in session:
+        last_meal_day = datetime.strptime(
+            session["last_eat_date"], "%Y-%m-%d %H:%M:%S.%f"
+        )
+        if last_meal_day.date() == datetime.now().date():
+            if session["todays_meals"] >= MAX_MEALS_PER_DAY:
+                return redirect("/out")
+            else:
+                session["todays_meals"] = int(session["todays_meals"]) + 1
+    else:
+        session["last_eat_date"] = str(datetime.now())
+        session["todays_meals"] = 1
+    # print(session)
+    day = datetime.now().strftime("%A")
+    time = datetime.now().strftime("%H:%M %p")
+    return render_template("eat_now.html", day=day, time=time)
+
+
+@app.route("/out")
+def out():
+    return render_template("you_are_out.html")
 
 
 # Auth part - https://realpython.com/flask-google-login
@@ -86,6 +114,23 @@ def callback():
 def login():
     return oauth.auth0.authorize_redirect(
         redirect_uri=url_for("callback", _external=True)
+    )
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(
+        "https://"
+        + env.get("AUTH0_DOMAIN")
+        + "/v2/logout?"
+        + urlencode(
+            {
+                "returnTo": url_for("home_page", _external=True),
+                "client_id": env.get("AUTH0_CLIENT_ID"),
+            },
+            quote_via=quote_plus,
+        )
     )
 
 
