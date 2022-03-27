@@ -24,10 +24,8 @@ COMPANY_DOMAIN = env.get("company_domain")
 MAX_MEALS_PER_DAY = int(env.get("MAX_MEALS_PER_DAY", 1))
 GOOGLE_APP_SCRIPT_URL = env.get("GOOGLE_APP_SCRIPT_URL")
 
-SPREAD_SHEET_ID = (
-    "1Q4FYsdfpQwNZar0GdNHuvALlfKWrsAgxiRFda9mXu78"  # Please set the Spreadsheet ID.
-)
-SHEET_NAME = "Sheet1"  # Please set the sheet name.
+SPREAD_SHEET_ID = env.get("SHEET_ID")
+SHEET_NAME = env.get("SHEET_NAME")
 
 gc = gspread.service_account()
 sh = gc.open_by_key(SPREAD_SHEET_ID)
